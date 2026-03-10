@@ -5,7 +5,7 @@ import time
 import hashlib
 from datetime import datetime, timezone
 from itertools import islice
-
+import random
 import yt_dlp
 from youtube_comment_downloader import YoutubeCommentDownloader, SORT_BY_POPULAR
 import db_utils
@@ -42,12 +42,13 @@ def save_data(data, filename="taglishbench.db"):
     """Upserts a dictionary into the SQLite database."""
     db_utils.save_data(data, filename)
 
-def get_recent_videos(channel_url, limit=5):
-    """Uses yt-dlp to get the latest video IDs from a YouTube channel."""
+def get_mixed_videos(channel_url):
+    """Fetches a mix of 5 latest, 5 popular, and 10 random videos using yt-dlp."""
+    channel_base = channel_url.rstrip('/')
+    url = f"{channel_base}/videos"
+    limit = 50
     
-    # Ensure URL ends with /videos so yt-dlp doesn't just extract the channel overview
-    fetch_url = channel_url if channel_url.endswith("/videos") else f"{channel_url}/videos"
-    
+    logger.info(f"Fetching mixed video selection (5 latest, 5 popular, 10 random) from pool of {limit} for {channel_base}...")
     ydl_opts = {
         'extract_flat': 'in_playlist',
         'playlistend': limit,
@@ -55,22 +56,51 @@ def get_recent_videos(channel_url, limit=5):
         'no_warnings': True,
     }
     
-    videos = []
-    logger.info(f"Fetching recent {limit} videos for {fetch_url}...")
+    pool = []
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            result = ydl.extract_info(fetch_url, download=False)
+            result = ydl.extract_info(url, download=False)
             if 'entries' in result:
                 for entry in result['entries']:
                     if entry.get('id'):
-                        videos.append({
+                        pool.append({
                             'id': entry['id'],
-                            'title': entry.get('title', 'Unknown Title')
+                            'title': entry.get('title', 'Unknown Title'),
+                            'view_count': entry.get('view_count', 0)
                         })
     except Exception as e:
-        logger.error(f"Error fetching videos for {channel_url}: {e}")
-        
-    return videos
+        logger.error(f"Error fetching videos for {url}: {e}")
+        return []
+
+    if not pool:
+        return []
+
+    latest_videos = pool[:5]
+    
+    # Sort remaining pool by view count for popular
+    remaining_for_popular = [v for v in pool if v not in latest_videos]
+    # Ensure view_count is int, treat None as 0
+    remaining_for_popular.sort(key=lambda x: x.get('view_count') or 0, reverse=True)
+    popular_videos = remaining_for_popular[:5]
+    
+    # Random from the rest
+    seen_ids = {v['id'] for v in latest_videos + popular_videos}
+    available_random = [v for v in pool if v['id'] not in seen_ids]
+    
+    random_count = min(10, len(available_random))
+    random_videos = random.sample(available_random, random_count) if random_count > 0 else []
+    
+    combined = latest_videos + popular_videos + random_videos
+    
+    # Final deduplication
+    unique_videos = []
+    final_seen = set()
+    for v in combined:
+        if v['id'] not in final_seen:
+            final_seen.add(v['id'])
+            unique_videos.append(v)
+            
+    return unique_videos
 
 def scrape_comments(video_tuple, channel_url, output_file, max_comments=1000):
     """Scrapes comments and replies from a specific video."""
@@ -210,7 +240,11 @@ def main():
         comment_limit = args.comment_limit
 
     for channel in channels_to_scrape:
-        videos = get_recent_videos(channel, limit=video_limit)
+        if args.test_run:
+            videos = get_mixed_videos(channel)[:args.video_limit]
+        else:
+            videos = get_mixed_videos(channel)
+            
         for video in videos:
             scrape_comments(video, channel, args.db, max_comments=comment_limit)
             time.sleep(2) # Polite sleep between videos

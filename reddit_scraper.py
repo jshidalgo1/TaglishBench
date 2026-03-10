@@ -36,25 +36,48 @@ def save_data(data, db_path="taglishbench.db"):
     """Upserts a dictionary into the SQLite database."""
     db_utils.save_data(data, db_path)
 
-def get_posts(subreddit, limit=5, after=None):
-    """Fetches top/hot posts from a subreddit using the JSON endpoint."""
-    url = f"https://old.reddit.com/r/{subreddit}.json"
+def get_posts_by_sort(subreddit, sort_type="hot", limit=5):
+    """Fetches posts from a subreddit by sort type."""
+    if sort_type == "hot":
+        url = f"https://old.reddit.com/r/{subreddit}.json"
+    else:
+        url = f"https://old.reddit.com/r/{subreddit}/{sort_type}.json"
+        
     params = {'limit': limit}
-    if after:
-        params['after'] = after
+    if sort_type == "top":
+        params['t'] = 'all'
+        
     headers = {'User-Agent': USER_AGENT}
 
-    logger.info(f"Fetching {limit} posts from r/{subreddit}...")
+    logger.info(f"Fetching {limit} {sort_type} posts from r/{subreddit}...")
     try:
         response = requests.get(url, params=params, headers=headers)
         response.raise_for_status()
         data = response.json()
         posts = data.get('data', {}).get('children', [])
-        next_after = data.get('data', {}).get('after')
-        return [p['data'] for p in posts], next_after
+        return [p['data'] for p in posts]
     except Exception as e:
-        logger.error(f"Error fetching posts for r/{subreddit}: {e}")
-        return [], None
+        logger.error(f"Error fetching {sort_type} posts for r/{subreddit}: {e}")
+        return []
+
+def get_mixed_posts(subreddit):
+    """Fetches exactly 4 hot, 3 top, and 3 new posts for a subreddit."""
+    logger.info(f"Fetching mixed post selection (4 hot, 3 top, 3 new) for r/{subreddit}...")
+    hot = get_posts_by_sort(subreddit, "hot", 4)
+    top = get_posts_by_sort(subreddit, "top", 3)
+    new = get_posts_by_sort(subreddit, "new", 3)
+    
+    combined = hot + top + new
+    
+    # Deduplicate in case a post happens to be in multiple categories
+    unique_posts = []
+    seen = set()
+    for p in combined:
+        if p.get('id') and p['id'] not in seen:
+            seen.add(p['id'])
+            unique_posts.append(p)
+            
+    return unique_posts
 
 def process_comment_tree(comments_list, thread_id, origin, output_file, parent_id=None, depth=0):
     """Recursively parses Reddit's comment tree into the target schema."""
@@ -219,7 +242,11 @@ def main():
         post_limit = args.post_limit
 
     for sub in targets:
-        posts, _ = get_posts(sub, limit=post_limit)
+        if args.test_run:
+            posts = get_mixed_posts(sub)[:post_limit]
+        else:
+            posts = get_mixed_posts(sub)
+            
         for post in posts:
             post_id = post.get('id')
             if post_id:
