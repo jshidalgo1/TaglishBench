@@ -16,21 +16,21 @@ logger = logging.getLogger(__name__)
 
 CHANNELS = [
     "https://www.youtube.com/@RaffyTulfoInAction",
-    "https://www.youtube.com/@BITAGOFFICIAL",
-    "https://www.youtube.com/@CongTV",
+    "https://www.youtube.com/@BitagBenTulfo",
+    "https://www.youtube.com/@CongTheVlogger",
     "https://www.youtube.com/@ViyCortez",
     "https://www.youtube.com/@IvanaAlawi",
     "https://www.youtube.com/@AlexGonzagaOfficial",
-    "https://www.youtube.com/@ZeinabHarake",
-    "https://www.youtube.com/@ABSCBNNews",
+    "https://www.youtube.com/@ZeinabHarakeVlogs",
+    "https://www.youtube.com/@abscbnnews",
     "https://www.youtube.com/@gmanews",
     "https://www.youtube.com/@gmapublicaffairs",
-    "https://www.youtube.com/@fliptopbattles",
-    "https://www.youtube.com/@Wish1075official",
-    "https://www.youtube.com/@PinoyBigBrother",
+    "https://www.youtube.com/@PBBabscbn",
     "https://www.youtube.com/@DocWillieOng",
     "https://www.youtube.com/@TeamLyqa",
-    "https://www.youtube.com/@NicoleAlbaYT"
+    "https://www.youtube.com/@NicoleAlbaYT",
+    "https://www.youtube.com/@mimiyuuuh",
+    "https://www.youtube.com/@PaoLUL_"
 ]
 
 def save_data(data, filename="taglishbench.db"):
