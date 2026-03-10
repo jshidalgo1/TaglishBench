@@ -7,6 +7,8 @@ import re
 import fasttext
 import requests
 import json
+import os
+import concurrent.futures
 
 # Set visual style
 sns.set_theme(style="whitegrid")
@@ -83,14 +85,15 @@ def apply_fasttext_filter(df, model_path="models/lid.176.bin"):
     print(f"FastText Pass 1 Filtered: Kept {len(df)} out of {initial_len} comments (Removed {initial_len - len(df)}).")
     return df
 
-def apply_llm_classifier(df, model_name="gemma2:9b"):
+
+
+def apply_llm_classifier(df, model_name="gemma2:9b", max_workers=2):
     """
     Pass 2: Fine-Grained Zero-Shot Classification
     Uses local Ollama LLM to classify text as English, Tagalog, or Taglish.
+    Uses ThreadPoolExecutor for concurrent requests.
     """
-    print(f"Running Pass 2: LLM Zero-Shot Classification with {model_name}...")
-    
-    results = []
+    print(f"Running Pass 2: LLM Zero-Shot Classification with {model_name} (max_workers={max_workers})...")
     
     prompt_template = """You are a linguistic expert classifying online comments.
 Classify the following text into exactly one of these three categories:
@@ -103,22 +106,19 @@ Respond ONLY with the category name (English, Tagalog, or Taglish). Do not add a
 Text: "{text}"
 Category:"""
 
-    url = "http://localhost:11434/api/generate"
+    ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+    url = f"{ollama_host}/api/generate"
     
     total_rows = len(df)
-    print(f"Sending {total_rows} texts to local Ollama API...")
+    print(f"Sending {total_rows} texts to Ollama API concurrently...")
     
-    for i, row in enumerate(df.itertuples(), 1):
-        text = str(row.text)
+    def process_row(index, text):
         prompt = prompt_template.format(text=text)
-        
         payload = {
             "model": model_name,
             "prompt": prompt,
             "stream": False,
-            "options": {
-                "temperature": 0.0
-            }
+            "options": {"temperature": 0.0}
         }
         
         try:
@@ -130,13 +130,30 @@ Category:"""
                     category = "Unknown"
             else:
                 category = "Error"
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             category = "Error"
             
-        results.append(category)
+        return index, category
+
+    results = [None] * total_rows
+    processed_count = 0
+    
+    # We use ThreadPoolExecutor to make concurrent HTTP requests
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks and store future -> original_df_index mapping
+        future_to_index = {
+            executor.submit(process_row, i, str(row.text)): i 
+            for i, row in enumerate(df.itertuples())
+        }
         
-        if i % max(1, total_rows // 20) == 0 or i == total_rows:
-            print(f"Processed {i}/{total_rows} texts...")
+        # Process results as they complete
+        for future in concurrent.futures.as_completed(future_to_index):
+            i, category = future.result()
+            results[i] = category
+            
+            processed_count += 1
+            if processed_count % max(1, total_rows // 20) == 0 or processed_count == total_rows:
+                print(f"Processed {processed_count}/{total_rows} texts...")
 
     df['llm_category'] = results
     
@@ -218,6 +235,19 @@ def generate_visualizations(df):
     plt.savefig('plots/engagement_vs_length.png')
     plt.close()
 
+def save_gold_standard(df, db_path="data/taglishbench.db", table_name="gold_standard_taglish"):
+    """Saves the final filtered DataFrame to a new table in the SQLite database."""
+    print(f"Saving final dataset to '{table_name}' table in {db_path}...")
+    try:
+        conn = sqlite3.connect(db_path)
+        # We don't need to save the intermediate metrics columns if we don't want to, 
+        # but saving everything is useful for auditing.
+        df.to_sql(table_name, conn, if_exists='replace', index=False)
+        conn.close()
+        print(f"Successfully saved {len(df)} rows to {table_name}.")
+    except Exception as e:
+        print(f"Error saving to database: {e}")
+
 def main():
     print("Loading SQLite dataset...")
     df = load_data()
@@ -231,6 +261,15 @@ def main():
     df = calculate_metrics(df)
     df = apply_gold_standard_filters(df)
     
+    # Generate visualizations on the FULL dataset before filtering
+    generate_visualizations(df)
+    print("Visualizations saved: plots/avg_word_count.png, plots/gold_standard_volume.png, plots/engagement_vs_length.png")
+    
+    # Filter dataset to only Gold Standard to save computing time on language passes
+    initial_len = len(df)
+    df = df[df['is_gold_standard'] == True].copy()
+    print(f"\nFiltered dataset to {len(df)} gold standard comments (out of {initial_len}) for language passes.\n")
+    
     # Apply Pass 1 Filter
     df = apply_fasttext_filter(df)
     
@@ -238,13 +277,10 @@ def main():
     df = apply_llm_classifier(df)
     
     if len(df) > 0:
-        gold_count = df['is_gold_standard'].sum()
-        print(f"Found {gold_count} comments natively matching the Gold Standard criteria ({(gold_count/len(df))*100:.1f}%).")
+        print(f"\nFinished processing. Remaining Taglish Gold Standard comments: {len(df)}")
+        save_gold_standard(df)
     else:
-        print("No comments remained after filters.")
-    
-    generate_visualizations(df)
-    print("Visualizations saved: plots/avg_word_count.png, plots/gold_standard_volume.png, plots/engagement_vs_length.png")
+        print("\nNo comments remained after filters.")
 
 if __name__ == "__main__":
     main()
