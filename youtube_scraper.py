@@ -81,7 +81,12 @@ def scrape_comments(video_tuple, channel_url, output_file, max_comments=1000):
         comments_generator = downloader.get_comments_from_url(video_url, sort_by=SORT_BY_POPULAR)
         
         # islice allows us to efficiently limit the generator
+        last_root_id = None
         for comment in islice(comments_generator, max_comments):
+            cid = comment.get('cid')
+            if not cid:
+                continue
+                
             author_name = comment.get('author', 'anonymous')
             timestamp_val = comment.get('time_parsed')
             iso_timestamp = None
@@ -118,19 +123,27 @@ def scrape_comments(video_tuple, channel_url, output_file, max_comments=1000):
             origin = channel_url.rstrip('/').split('/')[-1] if channel_url else "Unknown"
 
             is_reply = bool(comment.get('reply', False))
+            
+            if not is_reply:
+                last_root_id = cid
+                parent_id = None
+                depth = 0
+            else:
+                parent_id = last_root_id
+                depth = 1
 
             comment_data = {
-                "entry_id": f"yt_{comment.get('cid', '')}",
+                "entry_id": f"yt_{cid}",
                 "source": "youtube",
                 "origin": origin,
                 "text": comment.get('text', ''),
                 "thread_info": {
                     "thread_id": video_id,
-                    "parent_id": None, # Information on exact parent is often missing or complex in yt scraper
-                    "depth": 1 if is_reply else 0
+                    "parent_id": parent_id,
+                    "depth": depth
                 },
                 "metadata": {
-                    "platform_id": comment.get('cid', ''),
+                    "platform_id": cid,
                     "author_hash": hashlib.sha256(author_name.encode('utf-8')).hexdigest() if author_name else "anonymous",
                     "timestamp": iso_timestamp or datetime.now(timezone.utc).isoformat(),
                     "engagement": {
@@ -158,10 +171,24 @@ def scrape_comments(video_tuple, channel_url, output_file, max_comments=1000):
 def main():
     parser = argparse.ArgumentParser(description="Scrape Taglish comments from YouTube channels.")
     parser.add_argument("--test-run", action="store_true", help="Run a quick test scrape on a single channel.")
+    parser.add_argument("--video-url", type=str, help="Scrape comments from a specific video URL.")
     parser.add_argument("--video-limit", type=int, default=5, help="Number of recent videos to fetch per channel.")
     parser.add_argument("--comment-limit", type=int, default=500, help="Max comments to fetch per video.")
     parser.add_argument("--output", type=str, default="youtube_data.jsonl", help="Output JSONL file name.")
     args = parser.parse_args()
+
+    if args.video_url:
+        logger.info(f"Fetching info for specific video: {args.video_url}")
+        ydl_opts = {'quiet': True, 'no_warnings': True}
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(args.video_url, download=False)
+                video_tuple = {'id': info.get('id'), 'title': info.get('title', 'Unknown Title')}
+                channel_url = info.get('channel_url', 'Unknown')
+                scrape_comments(video_tuple, channel_url, args.output, max_comments=args.comment_limit)
+        except Exception as e:
+            logger.error(f"Error fetching specific video: {e}")
+        return
 
     if args.test_run:
         channels_to_scrape = ["https://www.youtube.com/@RaffyTulfoInAction"]
