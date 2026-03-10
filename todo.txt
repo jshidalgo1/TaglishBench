@@ -1,0 +1,6 @@
+1. Add more data, at least 100k rows. 
+2. Filter to get gold standard.
+3. add another filter rule for taglish verification. 
+4. Add rule for spam removal.
+5. PII scrubbing
+6. Annotation of data 
