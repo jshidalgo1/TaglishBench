@@ -26,7 +26,10 @@ SUBREDDITS = [
     "phinvest",
     "ChikaPH",
     "peyups",
-    "dlsu"
+    "dlsu",
+    "Pinoy",
+    "PHGamers",
+    "PhilippinesPolitics"
 ]
 
 def save_data(data, db_path="taglishbench.db"):

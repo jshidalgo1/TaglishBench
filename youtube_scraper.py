@@ -30,7 +30,12 @@ CHANNELS = [
     "https://www.youtube.com/@TeamLyqa",
     "https://www.youtube.com/@NicoleAlbaYT",
     "https://www.youtube.com/@mimiyuuuh",
-    "https://www.youtube.com/@PaoLUL_"
+    "https://www.youtube.com/@PaoLUL_",
+    "https://www.youtube.com/@AkosiDogie",
+    "https://www.youtube.com/@CHoOxTV",
+    "https://www.youtube.com/@sh1nboo"
+
+
 ]
 
 def save_data(data, filename="taglishbench.db"):
