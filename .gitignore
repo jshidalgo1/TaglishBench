@@ -1,0 +1,35 @@
+# Environments
+.env
+.env.*
+!.env.template
+.venv
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE / Editor folders
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Data files
+*.jsonl
+*.csv
+*.db
+*.sqlite3
+
+# Logs
+*.log
+
+# Project specific
+*test_data*
+# Keep the project docs folder though!
+!taglishbench_project_docs/
