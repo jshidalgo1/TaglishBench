@@ -1,0 +1,13 @@
+YouTube + Reddit scraping
+↓
+Heuristic cleaning filters
+↓
+Zero-shot LLM Taglish classifier
+↓
+Gold Taglish dataset (~20k)
+↓
+Dataset split
+↓
+Manual annotation of evaluation set
+↓
+TaglishBench benchmark
