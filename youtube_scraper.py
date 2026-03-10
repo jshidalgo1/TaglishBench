@@ -8,6 +8,7 @@ from itertools import islice
 
 import yt_dlp
 from youtube_comment_downloader import YoutubeCommentDownloader, SORT_BY_POPULAR
+import db_utils
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -28,16 +29,13 @@ CHANNELS = [
     "https://www.youtube.com/@Wish1075official",
     "https://www.youtube.com/@PinoyBigBrother",
     "https://www.youtube.com/@DocWillieOng",
-    "https://www.youtube.com/@TeamLyqa"
+    "https://www.youtube.com/@TeamLyqa",
+    "https://www.youtube.com/@NicoleAlbaYT"
 ]
 
-def save_data(data, filename="youtube_data.jsonl"):
-    """Appends a dictionary to a JSONL file."""
-    try:
-        with open(filename, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(data, ensure_ascii=False) + '\n')
-    except Exception as e:
-        logger.error(f"Error saving data: {e}")
+def save_data(data, filename="taglishbench.db"):
+    """Upserts a dictionary into the SQLite database."""
+    db_utils.save_data(data, filename)
 
 def get_recent_videos(channel_url, limit=5):
     """Uses yt-dlp to get the latest video IDs from a YouTube channel."""
@@ -174,8 +172,13 @@ def main():
     parser.add_argument("--video-url", type=str, help="Scrape comments from a specific video URL.")
     parser.add_argument("--video-limit", type=int, default=5, help="Number of recent videos to fetch per channel.")
     parser.add_argument("--comment-limit", type=int, default=500, help="Max comments to fetch per video.")
-    parser.add_argument("--output", type=str, default="youtube_data.jsonl", help="Output JSONL file name.")
+    parser.add_argument("--db", type=str, default="taglishbench.db", help="Output SQLite database file.")
     args = parser.parse_args()
+    
+    if args.test_run:
+        args.db = "taglishbench_test.db"
+        
+    db_utils.init_db(args.db)
 
     if args.video_url:
         logger.info(f"Fetching info for specific video: {args.video_url}")
@@ -185,7 +188,7 @@ def main():
                 info = ydl.extract_info(args.video_url, download=False)
                 video_tuple = {'id': info.get('id'), 'title': info.get('title', 'Unknown Title')}
                 channel_url = info.get('channel_url', 'Unknown')
-                scrape_comments(video_tuple, channel_url, args.output, max_comments=args.comment_limit)
+                scrape_comments(video_tuple, channel_url, args.db, max_comments=args.comment_limit)
         except Exception as e:
             logger.error(f"Error fetching specific video: {e}")
         return
@@ -194,8 +197,8 @@ def main():
         channels_to_scrape = ["https://www.youtube.com/@RaffyTulfoInAction"]
         video_limit = 1
         comment_limit = 10
-        args.output = "youtube_test_data.jsonl"
-        logger.info(f"Running in TEST MODE. Outputting to {args.output}")
+        args.db = "taglishbench_test.db"
+        logger.info(f"Running in TEST MODE. Outputting to {args.db}")
     else:
         channels_to_scrape = CHANNELS
         video_limit = args.video_limit
@@ -204,7 +207,7 @@ def main():
     for channel in channels_to_scrape:
         videos = get_recent_videos(channel, limit=video_limit)
         for video in videos:
-            scrape_comments(video, channel, args.output, max_comments=comment_limit)
+            scrape_comments(video, channel, args.db, max_comments=comment_limit)
             time.sleep(2) # Polite sleep between videos
             
     logger.info("Scraping complete.")

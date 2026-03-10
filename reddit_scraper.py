@@ -5,6 +5,7 @@ import time
 import hashlib
 import requests
 from datetime import datetime, timezone
+import db_utils
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -16,19 +17,21 @@ SUBREDDITS = [
     "Philippines",
     "CasualPH",
     "phcareers",
-    "PanganaySupportGroup",
+    "AskPH",
     "OffMyChestPH",
-    "BPOinPH",
-    "TechVocPH"
+    "adultingph",
+    "relationship_advicePH",
+    "studentsph",
+    "PinoyProgrammer",
+    "phinvest",
+    "ChikaPH",
+    "peyups",
+    "dlsu"
 ]
 
-def save_data(data, filename="reddit_data.jsonl"):
-    """Appends a dictionary to a JSONL file."""
-    try:
-        with open(filename, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(data, ensure_ascii=False) + '\n')
-    except Exception as e:
-        logger.error(f"Error saving data: {e}")
+def save_data(data, db_path="taglishbench.db"):
+    """Upserts a dictionary into the SQLite database."""
+    db_utils.save_data(data, db_path)
 
 def get_posts(subreddit, limit=5, after=None):
     """Fetches top/hot posts from a subreddit using the JSON endpoint."""
@@ -195,14 +198,19 @@ def main():
     parser.add_argument("--test-run", action="store_true", help="Run a quick test scrape on a single subreddit.")
     parser.add_argument("--subreddits", type=str, nargs='+', help="Specific subreddits to scrape.", default=[])
     parser.add_argument("--post-limit", type=int, default=10, help="Number of front-page posts to fetch per subreddit.")
-    parser.add_argument("--output", type=str, default="reddit_data.jsonl", help="Output JSONL file name.")
+    parser.add_argument("--db", type=str, default="taglishbench.db", help="Output SQLite database file.")
     args = parser.parse_args()
+    
+    if args.test_run:
+        args.db = "taglishbench_test.db"
+        
+    db_utils.init_db(args.db)
 
     if args.test_run:
         targets = ["Philippines"]
         post_limit = 2
-        args.output = "reddit_test_data.jsonl"
-        logger.info(f"Running in TEST MODE. Outputting to {args.output}")
+        args.db = "taglishbench_test.db"
+        logger.info(f"Running in TEST MODE. Outputting to {args.db}")
     else:
         targets = args.subreddits if args.subreddits else SUBREDDITS
         post_limit = args.post_limit
@@ -212,7 +220,7 @@ def main():
         for post in posts:
             post_id = post.get('id')
             if post_id:
-                scrape_thread(post_id, sub, args.output)
+                scrape_thread(post_id, sub, args.db)
             time.sleep(2) # Polite sleep between different posts
             
     logger.info("Scraping complete.")
