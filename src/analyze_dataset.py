@@ -11,7 +11,7 @@ import json
 # Set visual style
 sns.set_theme(style="whitegrid")
 
-def load_data(db_path="taglishbench.db"):
+def load_data(db_path="data/taglishbench.db"):
     """Loads raw SQLite data into a Pandas DataFrame."""
     conn = sqlite3.connect(db_path)
     # Exclude empty text rows safely
@@ -40,7 +40,7 @@ def calculate_metrics(df):
     
     return df
 
-def apply_fasttext_filter(df, model_path="lid.176.bin"):
+def apply_fasttext_filter(df, model_path="models/lid.176.bin"):
     """
     Pass 1: Coarse Language Filtering
     Discards rows that have zero probability of being Tagalog ('__label__tl') 
@@ -53,7 +53,7 @@ def apply_fasttext_filter(df, model_path="lid.176.bin"):
         model = fasttext.load_model(model_path)
     except Exception as e:
         print(f"Error loading FastText model: {e}")
-        print("Please ensure lid.176.bin is downloaded in this directory.")
+        print("Please ensure lid.176.bin is downloaded in models/ directory.")
         return df
 
     def get_tl_en_score(text):
@@ -180,7 +180,7 @@ def generate_visualizations(df):
     plt.xlabel('Average Words per Comment')
     plt.ylabel('Origin (Channel/Subreddit)')
     plt.tight_layout()
-    plt.savefig('avg_word_count.png')
+    plt.savefig('plots/avg_word_count.png')
     plt.close()
 
     # 2. Volume of "Gold Standard" Candidates
@@ -201,7 +201,7 @@ def generate_visualizations(df):
     plt.xlabel('Number of Comments')
     plt.ylabel('Origin (Channel/Subreddit)')
     plt.tight_layout()
-    plt.savefig('gold_standard_volume.png')
+    plt.savefig('plots/gold_standard_volume.png')
     plt.close()
 
     # 3. Distribution of Engagement vs Length (for Gold Standard only)
@@ -215,7 +215,7 @@ def generate_visualizations(df):
     plt.xlabel('Word Count')
     plt.ylabel('Engagement Score (Log Scale)')
     plt.tight_layout()
-    plt.savefig('engagement_vs_length.png')
+    plt.savefig('plots/engagement_vs_length.png')
     plt.close()
 
 def main():
@@ -244,7 +244,7 @@ def main():
         print("No comments remained after filters.")
     
     generate_visualizations(df)
-    print("Visualizations saved: avg_word_count.png, gold_standard_volume.png, engagement_vs_length.png")
+    print("Visualizations saved: plots/avg_word_count.png, plots/gold_standard_volume.png, plots/engagement_vs_length.png")
 
 if __name__ == "__main__":
     main()

@@ -3,7 +3,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def init_db(db_path="taglishbench.db"):
+def init_db(db_path="data/taglishbench.db"):
     try:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
@@ -37,7 +37,7 @@ def init_db(db_path="taglishbench.db"):
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
 
-def save_data(data, db_path="taglishbench.db"):
+def save_data(data, db_path="data/taglishbench.db"):
     """Upserts a TaglishBench record into the SQLite database."""
     try:
         conn = sqlite3.connect(db_path)

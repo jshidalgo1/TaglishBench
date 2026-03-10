@@ -8,7 +8,7 @@ The pipeline is built to scrape real, authentic Taglish conversational data from
 
 The data collection relies on three main components:
 1. **Scrapers**: Python scripts targeting specific platforms to extract deeply nested conversation threads.
-2. **Database Utilities**: A unified SQLite database (`taglishbench.db`) that handles schema alignment, deduplication, and relationship mapping (parent/child thread depth).
+2. **Database Utilities**: A unified SQLite database (`data/taglishbench.db`) that handles schema alignment, deduplication, and relationship mapping (parent/child thread depth).
 3. **Analysis & Filtering**: Scripts to analyze the raw text, apply "Gold Standard" heuristic filters, and visualize dataset composition.
 
 ## Prerequisites
@@ -21,59 +21,59 @@ pip install yt-dlp youtube-comment-downloader requests pandas matplotlib seaborn
 
 ## Usage
 
-### 1. YouTube Scraper (`youtube_scraper.py`)
+### 1. YouTube Scraper (`src/youtube_scraper.py`)
 Scrapes videos and comments from a predefined list of popular Filipino YouTube channels. It uses `yt-dlp` to fetch the latest video IDs and `youtube-comment-downloader` to pull the comment trees.
 
 **Run default scrape (5 videos per channel, up to 500 comments each):**
 ```bash
-python youtube_scraper.py
+python src/youtube_scraper.py
 ```
 
 **Run a test scrape (1 channel, 1 video, 10 comments):**
 ```bash
-python youtube_scraper.py --test-run
+python src/youtube_scraper.py --test-run
 ```
 
 **Scrape a specific video by URL:**
 ```bash
-python youtube_scraper.py --video-url "https://www.youtube.com/watch?v=XYZ"
+python src/youtube_scraper.py --video-url "https://www.youtube.com/watch?v=XYZ"
 ```
 
 **Override limits:**
 ```bash
-python youtube_scraper.py --video-limit 10 --comment-limit 1000
+python src/youtube_scraper.py --video-limit 10 --comment-limit 1000
 ```
 
-### 2. Reddit Scraper (`reddit_scraper.py`)
+### 2. Reddit Scraper (`src/reddit_scraper.py`)
 Scrapes posts and deep comment threads from popular Filipino subreddits using Reddit's public `.json` endpoints (bypassing the need for an official API key). It respects rate limits and maps the nested thread structure natively.
 
 **Run default scrape (10 hot posts from default subreddits):**
 ```bash
-python reddit_scraper.py
+python src/reddit_scraper.py
 ```
 
 **Run a test scrape (2 posts from r/Philippines):**
 ```bash
-python reddit_scraper.py --test-run
+python src/reddit_scraper.py --test-run
 ```
 
 **Target specific subreddits with custom limits:**
 ```bash
-python reddit_scraper.py --subreddits OffMyChestPH CasualPH --post-limit 20
+python src/reddit_scraper.py --subreddits OffMyChestPH CasualPH --post-limit 20
 ```
 
-### 3. Database Storage (`db_utils.py`)
-Both scrapers automatically route their processed output through `db_utils.py` to be saved in `taglishbench.db`.
+### 3. Database Storage (`src/db_utils.py`)
+Both scrapers automatically route their processed output through `src/db_utils.py` to be saved in `data/taglishbench.db`.
 
 * **Deduplication**: The database uses an `UPSERT` methodology. If you scrape the same video or subreddit multiple times, it will simply update the engagement scores (likes/upvotes) without creating duplicated text entries.
 * **Schema Mapping**: All entries are mapped to the core TaglishBench schema, tracking `source`, `origin`, `thread_id`, `parent_id`, `depth`, `author_hash`, and engagement metrics.
 
-### 4. Dataset Quality Analysis (`analyze_dataset.py`)
+### 4. Dataset Quality Analysis (`src/analyze_dataset.py`)
 Because massive scrapes include noise (short replies like "True", bots, emoji spam), this script queries the SQLite database, applies rigorous "Gold Standard" filtering heuristics, and generates visualizations.
 
 **Run the analysis:**
 ```bash
-python analyze_dataset.py
+python src/analyze_dataset.py
 ```
 
 **Current Filtering Heuristics:**

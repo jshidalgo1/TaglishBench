@@ -38,7 +38,7 @@ CHANNELS = [
 
 ]
 
-def save_data(data, filename="taglishbench.db"):
+def save_data(data, filename="data/taglishbench.db"):
     """Upserts a dictionary into the SQLite database."""
     db_utils.save_data(data, filename)
 
@@ -207,7 +207,7 @@ def main():
     parser.add_argument("--video-url", type=str, help="Scrape comments from a specific video URL.")
     parser.add_argument("--video-limit", type=int, default=5, help="Number of recent videos to fetch per channel.")
     parser.add_argument("--comment-limit", type=int, default=500, help="Max comments to fetch per video.")
-    parser.add_argument("--db", type=str, default="taglishbench.db", help="Output SQLite database file.")
+    parser.add_argument("--db", type=str, default="data/taglishbench.db", help="Output SQLite database file.")
     args = parser.parse_args()
     
     if args.test_run:

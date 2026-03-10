@@ -9,7 +9,7 @@ This document serves as a reference log for the design and implementation decisi
     *   **Mixed Selection:** Instead of just scraping the most "popular" or "hot" threads, the scrapers pull a mix of content (e.g., latest, popular, random for YouTube; hot, top, new for Reddit). This ensures the dataset captures diverse linguistic phenomena rather than just echo-chamber viral posts.
 
 ## Database Schema & Storage
-*   **Decision:** Utilize a unified SQLite database (`taglishbench.db`) with a strict conceptual schema and `UPSERT` deduplication.
+*   **Decision:** Utilize a unified SQLite database (`data/taglishbench.db`) with a strict conceptual schema and `UPSERT` deduplication.
 *   **Rationale:** 
     *   **Schema Design:** All platform data is normalized into a standard JSON-like schema tracking `entry_id`, `source`, `origin`, `text`, `thread_info` (depth, parent), and `metadata`. This allows seamless downstream analysis across completely completely different platforms.
     *   **Deduplication:** By tracking unique entry IDs and using SQLite `UPSERT`, repeated scrape runs on the same videos/subreddits will update engagement scores (likes/upvotes) without duplicating the text payloads in the dataset.
@@ -37,3 +37,8 @@ We decided on a two-pass filtering approach rather than a single complex step.
     *   **Complexity of Code-Switching:** Hardcoded dictionary methods fail to capture the nuance, slang, morphological changes, and true alternating syntax of online Taglish. Large Language Models natively understand context and code-switching far better than traditional NLP heuristics.
     *   **Cost & Privacy:** Rather than using paid APIs (Gemini/OpenAI) where data leaves the machine, or hitting deployed Cloud endpoints, we opted for local inference. This guarantees privacy and zero marginal cost for bulk dataset classification, taking advantage of local Apple Silicon hardware.
     *   **Prompt Design:** We use a strict zero-shot prompt asking the model to classify text strictly as "English", "Tagalog", or "Taglish", parsing the exact response category.
+
+## Codebase Structure
+*   **Decision:** We reorganized the initial flat codebase into modular subdirectories: `src`, `data`, `models`, `docs`, `logs`, and `plots`.
+*   **Rationale:** 
+    *   **Maintainability:** As complexity increases, a flat structure becomes unmanageable. Splitting logic (`src`), storage (`data`), and documentation (`docs`) ensures developers can navigate effectively without tripping over output logs or PNG plots.

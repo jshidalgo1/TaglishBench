@@ -31,7 +31,7 @@ SUBREDDITS = [
     "PHGamers"
 ]
 
-def save_data(data, db_path="taglishbench.db"):
+def save_data(data, db_path="data/taglishbench.db"):
     """Upserts a dictionary into the SQLite database."""
     db_utils.save_data(data, db_path)
 
@@ -223,7 +223,7 @@ def main():
     parser.add_argument("--test-run", action="store_true", help="Run a quick test scrape on a single subreddit.")
     parser.add_argument("--subreddits", type=str, nargs='+', help="Specific subreddits to scrape.", default=[])
     parser.add_argument("--post-limit", type=int, default=10, help="Number of front-page posts to fetch per subreddit.")
-    parser.add_argument("--db", type=str, default="taglishbench.db", help="Output SQLite database file.")
+    parser.add_argument("--db", type=str, default="data/taglishbench.db", help="Output SQLite database file.")
     args = parser.parse_args()
     
     if args.test_run:
