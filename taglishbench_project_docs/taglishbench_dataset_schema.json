@@ -1,0 +1,19 @@
+{
+  "dataset_name": "TaglishBench",
+  "fields": {
+    "id": "unique identifier",
+    "text": "input text in Taglish",
+    "task": "task type (sentiment, qa, reasoning, translation, code_switch_detection)",
+    "label": "ground truth label",
+    "code_switch_ratio": "float between 0 and 1 representing English proportion",
+    "source": "data source (reddit, youtube, twitter, etc.)"
+  },
+  "example_record": {
+    "id": "001",
+    "text": "Grabe traffic today, baka malate ako sa meeting.",
+    "task": "sentiment",
+    "label": "negative",
+    "code_switch_ratio": 0.4,
+    "source": "reddit"
+  }
+}
