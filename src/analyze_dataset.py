@@ -95,13 +95,13 @@ def apply_llm_classifier(df, model_name="gemma2:9b", max_workers=2):
     """
     print(f"Running Pass 2: LLM Zero-Shot Classification with {model_name} (max_workers={max_workers})...")
     
-    prompt_template = """You are a linguistic expert classifying online comments.
+    prompt_template = """You are a strict linguistic expert classifying online comments from the Philippines.
 Classify the following text into exactly one of these three categories:
-- English (If it is entirely or almost entirely in English)
-- Tagalog (If it is entirely or almost entirely in Tagalog)
-- Taglish (If it contains a significant mix of both English and Tagalog words, or code-switches between them)
+- English (If the grammatical structure is English. It may contain 1 or 2 Filipino words, but it is fundamentally an English sentence)
+- Tagalog (If the grammatical structure is Tagalog. It may contain English loanwords like "laptop", "cellphone", or "common sense", but it is fundamentally a Tagalog sentence)
+- Taglish (ONLY if there is substantial code-switching. The sentence must actively switch between English and Tagalog grammar, or feature a heavily mixed vocabulary where neither language completely dominates.)
 
-Respond ONLY with the category name (English, Tagalog, or Taglish). Do not add any other text or punctuation.
+Respond ONLY with the category name (English, Tagalog, or Taglish). Do not add any other text, explanation, or punctuation.
 
 Text: "{text}"
 Category:"""
@@ -135,15 +135,41 @@ Category:"""
             
         return index, category
 
+    # Setup Checkpointing (Save-As-You-Go)
+    checkpoint_file = "data/llm_checkpoint.csv"
     results = [None] * total_rows
     processed_count = 0
-    
+    start_indices = []
+
+    # Check if a previous checkpoint exists to resume
+    if os.path.exists(checkpoint_file):
+        try:
+            print(f"Found existing checkpoint: {checkpoint_file}. Resuming progress...")
+            chk_df = pd.read_csv(checkpoint_file)
+            # Create a mapping of text -> category from checkpoint
+            chk_map = dict(zip(chk_df['text'].astype(str), chk_df['llm_category']))
+            
+            for i, row in enumerate(df.itertuples()):
+                text = str(row.text)
+                if text in chk_map and pd.notna(chk_map[text]) and chk_map[text] != "Error":
+                    results[i] = chk_map[text]
+                    processed_count += 1
+                else:
+                    start_indices.append(i)
+        except Exception as e:
+            print(f"Error loading checkpoint, starting fresh: {e}")
+            start_indices = list(range(total_rows))
+    else:
+        start_indices = list(range(total_rows))
+
+    print(f"Resuming {len(start_indices)} remaining tasks...")
+
     # We use ThreadPoolExecutor to make concurrent HTTP requests
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all tasks and store future -> original_df_index mapping
         future_to_index = {
-            executor.submit(process_row, i, str(row.text)): i 
-            for i, row in enumerate(df.itertuples())
+            executor.submit(process_row, i, str(df.iloc[i].text)): i 
+            for i in start_indices
         }
         
         # Process results as they complete
@@ -155,7 +181,24 @@ Category:"""
             if processed_count % max(1, total_rows // 20) == 0 or processed_count == total_rows:
                 print(f"Processed {processed_count}/{total_rows} texts...")
 
+            # Auto-save every 500 records
+            if processed_count % 500 == 0:
+                temp_df = df.copy()
+                temp_df['llm_category'] = results
+                # Only save rows that have been processed
+                temp_df = temp_df[temp_df['llm_category'].notna()]
+                temp_df.to_csv(checkpoint_file, index=False)
+                
+    # Final save to dataframe
     df['llm_category'] = results
+    
+    # Optional: cleanup checkpoint file if exactly 100% finished
+    try:
+        if processed_count == total_rows and os.path.exists(checkpoint_file):
+            os.remove(checkpoint_file)
+            print("Processing complete. Checkpoint file removed.")
+    except Exception as e:
+        pass
     
     # Filter to keep only Taglish comments
     initial_len = len(df)
